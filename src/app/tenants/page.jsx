@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DataTable from "../../components/ui/DataTable";
 import Modal from "../../components/ui/Modal";
@@ -9,10 +10,11 @@ import FormSelect from "../../components/ui/FormSelect";
 import { FiPlus, FiEdit2, FiTrash2, FiEye } from "react-icons/fi";
 import { fetchTenants, createTenant, tenantKeys } from "../../api/tenantApi";
 
+
 // ─── Initial form state ───────────────────────────────────────
 const INITIAL_FORM = {
   businessName: "",
-  businessType: "",
+  businessType: "retail",
   ownerName: "",
   ownerEmail: "",
   ownerPhone: "",
@@ -23,62 +25,77 @@ const INITIAL_FORM = {
   state: "",
   city: "",
   pincode: "",
-  timezone: "",
-  currency: "",
+  timezone: "IST",
+  currency: "INR",
   subdomain: "",
   customDomain: "",
   mongoUri: "",
-  plan: "",
-  billingCycle: "",
+  plan: "Basic",
+  billingCycle: "monthly",
   trialEnd: "",
   expiry: "",
-  paymentStatus: "",
+  paymentStatus: "pending",
   status: "Active",
 };
 
 // ─── Table column definitions ─────────────────────────────────
 const columns = [
-  { header: "Tenant ID", accessor: "id" },
+  { header: "Tenant ID", accessor: "tenantId" },
   {
     header: "Business Name",
-    accessor: "name",
+    accessor: "business",
     render: (row) => (
       <span className="font-medium text-gray-900 dark:text-white">
-        {row.name}
+        {row.business?.name || "N/A"}
       </span>
     ),
   },
-  { header: "Owner Email", accessor: "owner" },
+  {
+    header: "Owner Email",
+    accessor: "owner",
+    render: (row) => <span>{row.owner?.email || "N/A"}</span>
+  },
   {
     header: "Plan",
-    accessor: "plan",
-    render: (row) => (
-      <span
-        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${row.plan === "Enterprise"
+    accessor: "subscription",
+    render: (row) => {
+      const planName = row.subscription?.plan || "Basic";
+      return (
+        <span
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${planName === "Enterprise"
             ? "bg-purple-100 text-purple-800"
             : "bg-blue-100 text-blue-800"
-          }`}
-      >
-        {row.plan}
-      </span>
-    ),
+            }`}
+        >
+          {planName}
+        </span>
+      );
+    },
   },
   {
     header: "Status",
-    accessor: "status",
+    accessor: "tenantStatus",
     render: (row) => (
       <span
-        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${row.status === "Active"
-            ? "bg-green-100 text-green-800"
-            : "bg-red-100 text-red-800"
+        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${row.tenantStatus === "active"
+          ? "bg-green-100 text-green-800"
+          : "bg-red-100 text-red-800"
           }`}
       >
-        {row.status}
+        {row.tenantStatus?.charAt(0).toUpperCase() + row.tenantStatus?.slice(1) || "Unknown"}
       </span>
     ),
   },
-  { header: "Expiry", accessor: "expiry" },
-  { header: "Created Date", accessor: "created" },
+  {
+    header: "Expiry",
+    accessor: "subscription",
+    render: (row) => <span>{row.subscription?.expiryDate ? new Date(row.subscription.expiryDate).toLocaleDateString() : "N/A"}</span>
+  },
+  {
+    header: "Created Date",
+    accessor: "createdAt",
+    render: (row) => <span>{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : "N/A"}</span>
+  },
 ];
 
 // ─── Select options ───────────────────────────────────────────
@@ -126,6 +143,7 @@ const TENANT_STATUSES = [
 // ═══════════════════════════════════════════════════════════════
 export default function TenantsPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState(INITIAL_FORM);
 
@@ -144,7 +162,6 @@ export default function TenantsPage() {
   const createMutation = useMutation({
     mutationFn: createTenant,
     onSuccess: () => {
-      // Invalidate the tenants cache so the list refetches automatically
       queryClient.invalidateQueries({ queryKey: tenantKeys.all });
       setIsModalOpen(false);
       setFormData(INITIAL_FORM);
@@ -162,16 +179,16 @@ export default function TenantsPage() {
     createMutation.mutate(formData);
   };
 
-  // ── Row actions ───────────────────────────────────────────
+  // ── Row actions (navigate to separate pages) ─────────────
   const actions = (row) => (
     <>
-      <button className="text-gray-500 hover:text-indigo-600">
+      <button onClick={() => router.push(`/tenants/${row._id}/view`)} className="text-gray-500 hover:text-indigo-600" title="View">
         <FiEye size={18} />
       </button>
-      <button className="text-gray-500 hover:text-blue-600">
+      <button onClick={() => router.push(`/tenants/${row._id}/edit`)} className="text-gray-500 hover:text-blue-600" title="Edit">
         <FiEdit2 size={18} />
       </button>
-      <button className="text-gray-500 hover:text-red-600">
+      <button className="text-gray-500 hover:text-red-600" title="Delete">
         <FiTrash2 size={18} />
       </button>
     </>
@@ -258,22 +275,22 @@ export default function TenantsPage() {
               1. Business Information
             </h4>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <FormInput label="Business Name" name="businessName" required onChange={handleInputChange} />
-              <FormSelect label="Business Type" name="businessType" options={BUSINESS_TYPES} onChange={handleInputChange} />
-              <FormInput label="Owner Name" name="ownerName" required onChange={handleInputChange} />
-              <FormInput label="Owner Email" name="ownerEmail" type="email" required onChange={handleInputChange} />
-              <FormInput label="Owner Phone" name="ownerPhone" type="tel" onChange={handleInputChange} />
-              <FormInput label="GST Number" name="gst" onChange={handleInputChange} />
-              <FormInput label="PAN" name="pan" onChange={handleInputChange} />
+              <FormInput label="Business Name" name="businessName" value={formData.businessName} required onChange={handleInputChange} />
+              <FormSelect label="Business Type" name="businessType" value={formData.businessType} options={BUSINESS_TYPES} onChange={handleInputChange} />
+              <FormInput label="Owner Name" name="ownerName" value={formData.ownerName} required onChange={handleInputChange} />
+              <FormInput label="Owner Email" name="ownerEmail" value={formData.ownerEmail} type="email" required onChange={handleInputChange} />
+              <FormInput label="Owner Phone" name="ownerPhone" value={formData.ownerPhone} type="tel" onChange={handleInputChange} />
+              <FormInput label="GST Number" name="gst" value={formData.gst} onChange={handleInputChange} />
+              <FormInput label="PAN" name="pan" value={formData.pan} onChange={handleInputChange} />
             </div>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <FormInput label="Address" name="address" className="lg:col-span-4" onChange={handleInputChange} />
-              <FormInput label="Country" name="country" onChange={handleInputChange} />
-              <FormInput label="State" name="state" onChange={handleInputChange} />
-              <FormInput label="City" name="city" onChange={handleInputChange} />
-              <FormInput label="Pincode" name="pincode" onChange={handleInputChange} />
-              <FormSelect label="Timezone" name="timezone" options={TIMEZONES} onChange={handleInputChange} />
-              <FormSelect label="Currency" name="currency" options={CURRENCIES} onChange={handleInputChange} />
+              <FormInput label="Address" name="address" value={formData.address} className="lg:col-span-4" onChange={handleInputChange} />
+              <FormInput label="Country" name="country" value={formData.country} onChange={handleInputChange} />
+              <FormInput label="State" name="state" value={formData.state} onChange={handleInputChange} />
+              <FormInput label="City" name="city" value={formData.city} onChange={handleInputChange} />
+              <FormInput label="Pincode" name="pincode" value={formData.pincode} onChange={handleInputChange} />
+              <FormSelect label="Timezone" name="timezone" value={formData.timezone} options={TIMEZONES} onChange={handleInputChange} />
+              <FormSelect label="Currency" name="currency" value={formData.currency} options={CURRENCIES} onChange={handleInputChange} />
             </div>
           </div>
 
@@ -283,8 +300,8 @@ export default function TenantsPage() {
               2. Technical Configuration
             </h4>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <FormInput label="Subdomain" name="subdomain" placeholder="example.app.com" required onChange={handleInputChange} />
-              <FormInput label="Custom MongoDB URI (Optional)" name="mongoUri" placeholder="mongodb+srv://..." onChange={handleInputChange} />
+              <FormInput label="Subdomain" name="subdomain" value={formData.subdomain} placeholder="example.app.com" required onChange={handleInputChange} />
+              <FormInput label="Custom MongoDB URI (Optional)" name="mongoUri" value={formData.mongoUri} placeholder="mongodb+srv://..." onChange={handleInputChange} />
             </div>
           </div>
 
@@ -294,12 +311,12 @@ export default function TenantsPage() {
               3. Subscription &amp; Billing
             </h4>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <FormSelect label="Plan" name="plan" options={PLANS} required onChange={handleInputChange} />
-              <FormSelect label="Billing Cycle" name="billingCycle" options={BILLING_CYCLES} onChange={handleInputChange} />
-              <FormInput label="Trial End Date" name="trialEnd" type="date" onChange={handleInputChange} />
-              <FormInput label="Expiry Date" name="expiry" type="date" onChange={handleInputChange} />
-              <FormSelect label="Payment Status" name="paymentStatus" options={PAYMENT_STATUSES} onChange={handleInputChange} />
-              <FormSelect label="Tenant Status" name="status" options={TENANT_STATUSES} onChange={handleInputChange} />
+              <FormSelect label="Plan" name="plan" value={formData.plan} options={PLANS} required onChange={handleInputChange} />
+              <FormSelect label="Billing Cycle" name="billingCycle" value={formData.billingCycle} options={BILLING_CYCLES} onChange={handleInputChange} />
+              <FormInput label="Trial End Date" name="trialEnd" value={formData.trialEnd} type="date" onChange={handleInputChange} />
+              <FormInput label="Expiry Date" name="expiry" value={formData.expiry} type="date" onChange={handleInputChange} />
+              <FormSelect label="Payment Status" name="paymentStatus" value={formData.paymentStatus} options={PAYMENT_STATUSES} onChange={handleInputChange} />
+              <FormSelect label="Tenant Status" name="status" value={formData.status} options={TENANT_STATUSES} onChange={handleInputChange} />
             </div>
           </div>
 
@@ -332,3 +349,4 @@ export default function TenantsPage() {
     </div>
   );
 }
+

@@ -1,94 +1,155 @@
-/**
- * Tenant API Layer
- * ─────────────────
- * Centralised data-access functions for the Tenants resource.
- * All network calls live here — components never call fetch() directly.
- *
- * Uses NEXT_PUBLIC_BACKEND_URL so the value is inlined at build time by Next.js.
- */
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
-// ────────────────────────────────────────────
-// Query keys — single source of truth
-// ────────────────────────────────────────────
 export const tenantKeys = {
   all: ["tenants"],
-  // Extend later:  detail: (id) => ["tenants", id],
+  byId: (id) => ["tenants", id],
 };
 
-// ────────────────────────────────────────────
-// GET  /api/v1/tenants
-// ────────────────────────────────────────────
+// Helper to get token (if you have one in localStorage/cookies)
+const getAuthHeaders = () => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  return {
+    "Content-Type": "application/json",
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+};
+
 export const fetchTenants = async () => {
-  const res = await fetch(`${BASE_URL}/api/v1/tenants`);
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch tenants (${res.status})`);
+  try {
+    const response = await fetch(`${API_BASE_URL}/tenants`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    const json = await response.json();
+    if (!response.ok) {
+      throw new Error(json.message || "Failed to fetch tenants");
+    }
+    return json.data || [];
+  } catch (error) {
+    console.error("Error fetching tenants:", error);
+    throw error;
   }
-
-  return res.json();
 };
 
-// ────────────────────────────────────────────
-// POST /api/v1/tenants
-// ────────────────────────────────────────────
-
-/**
- * Transforms flat formData into the nested backend payload:
- *   { business, owner, address, subscription }
- */
-const buildTenantPayload = (formData) => ({
-  business: {
-    name: formData.businessName,
-    type: formData.businessType,
-    gst: formData.gst || undefined,
-    pan: formData.pan || undefined,
-    subdomain: formData.subdomain,
-    customDomain: formData.customDomain || undefined,
-    mongoUri: formData.mongoUri || undefined,
-    timezone: formData.timezone || undefined,
-    currency: formData.currency || undefined,
-  },
-  owner: {
-    name: formData.ownerName,
-    email: formData.ownerEmail,
-    phone: formData.ownerPhone || undefined,
-  },
-  address: {
-    line: formData.address || undefined,
-    country: formData.country || undefined,
-    state: formData.state || undefined,
-    city: formData.city || undefined,
-    pincode: formData.pincode || undefined,
-  },
-  subscription: {
-    plan: formData.plan || "Basic",
-    billingCycle: formData.billingCycle || undefined,
-    trialEnd: formData.trialEnd || undefined,
-    expiry: formData.expiry || undefined,
-    paymentStatus: formData.paymentStatus || undefined,
-    status: formData.status || "Active",
-  },
-});
+export const fetchTenantById = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/tenants/${id}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    const json = await response.json();
+    if (!response.ok) {
+      throw new Error(json.message || "Failed to fetch tenant");
+    }
+    return json.data;
+  } catch (error) {
+    console.error("Error fetching tenant:", error);
+    throw error;
+  }
+};
 
 export const createTenant = async (formData) => {
-  const payload = buildTenantPayload(formData);
-
-  const res = await fetch(`${BASE_URL}/api/v1/tenants`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  // Transform flat formData to nested payload required by SuperTenantSchema
+  const payload = {
+    business: {
+      name: formData.businessName,
+      type: formData.businessType,
+      gstNumber: formData.gst,
     },
-    body: JSON.stringify(payload),
-  });
+    pan: formData.pan,
+    owner: {
+      name: formData.ownerName,
+      email: formData.ownerEmail,
+      phone: formData.ownerPhone,
+    },
+    address: {
+      street: formData.address,
+      city: formData.city,
+      state: formData.state,
+      pinCode: formData.pincode,
+      country: formData.country,
+    },
+    currency: formData.currency,
+    subdomain: formData.subdomain,
+    mongoUri: formData.mongoUri || null,
+    subscription: {
+      plan: formData.plan,
+      billingCycle: formData.billingCycle,
+      paymentStatus: formData.paymentStatus
+        ? formData.paymentStatus.charAt(0).toUpperCase() + formData.paymentStatus.slice(1)
+        : "Pending",
+      expiryDate: formData.expiry || new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
+      trialEndDate: formData.trialEnd || null,
+    },
+    tenantStatus: formData.status.toLowerCase(),
+  };
 
-  if (!res.ok) {
-    const errorBody = await res.json().catch(() => null);
-    throw new Error(
-      errorBody?.message || `Failed to create tenant (${res.status})`
-    );
+  try {
+    const response = await fetch(`${API_BASE_URL}/tenants`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const json = await response.json();
+    if (!response.ok) {
+      throw new Error(json.message || "Failed to create tenant");
+    }
+    return json;
+  } catch (error) {
+    console.error("Error creating tenant:", error);
+    throw error;
   }
+};
 
-  return res.json();
+export const updateTenant = async (id, formData) => {
+  // Transform flat formData to nested payload (same as createTenant)
+  const payload = {
+    business: {
+      name: formData.businessName,
+      type: formData.businessType,
+      gstNumber: formData.gst,
+    },
+    pan: formData.pan,
+    owner: {
+      name: formData.ownerName,
+      email: formData.ownerEmail,
+      phone: formData.ownerPhone,
+    },
+    address: {
+      street: formData.address,
+      city: formData.city,
+      state: formData.state,
+      pinCode: formData.pincode,
+      country: formData.country,
+    },
+    currency: formData.currency,
+    subdomain: formData.subdomain,
+    mongoUri: formData.mongoUri || null,
+    subscription: {
+      plan: formData.plan,
+      billingCycle: formData.billingCycle,
+      paymentStatus: formData.paymentStatus
+        ? formData.paymentStatus.charAt(0).toUpperCase() + formData.paymentStatus.slice(1)
+        : "Pending",
+      expiryDate: formData.expiry || new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
+      trialEndDate: formData.trialEnd || null,
+    },
+    tenantStatus: formData.status.toLowerCase(),
+  };
+  try {
+    const response = await fetch(`${API_BASE_URL}/tenants/${id}`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const json = await response.json();
+    if (!response.ok) {
+      throw new Error(json.message || "Failed to update tenant");
+    }
+    return json;
+  } catch (error) {
+    console.error("Error updating tenant:", error);
+    throw error;
+  }
 };
