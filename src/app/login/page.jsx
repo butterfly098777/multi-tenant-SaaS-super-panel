@@ -57,8 +57,7 @@ export default function LoginPage() {
 
         {/* Heading */}
         <div style={styles.headingGroup}>
-          <h2 style={styles.heading}>Welcome Back 👋</h2>
-          <p style={styles.subHeading}>Apna account mein login karo</p>
+          <h2 style={styles.heading}>Welcome Back</h2>
         </div>
 
         {/* Error */}
@@ -157,7 +156,7 @@ export default function LoginPage() {
         </form>
 
         <p style={styles.footer}>
-          Super Admin Panel • Sirf authorized users ke liye 🔐
+          Super Admin Panel • Enter email and password shown in placeholder to login • THIS EMAIL IS FOR TEST PURPOSES ONLY 
         </p>
       </div>
 
