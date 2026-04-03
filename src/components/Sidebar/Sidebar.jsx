@@ -1,6 +1,6 @@
 "use client";
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   FiHome,
   FiUsers,
@@ -16,9 +16,17 @@ import {
   FiMenu
 } from 'react-icons/fi';
 import clsx from 'clsx';
+import { logoutAdmin } from '../../api/adminApi';
 
 const Sidebar = ({ isCollapsed, toggleSidebar }) => {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logoutAdmin();            // localStorage se token + admin clear
+    router.replace('/login'); // login page pe bhejo
+  };
+
 
   const navItems = [
     { icon: FiHome, href: '/dashboard', label: 'Dashboard' },
@@ -111,7 +119,9 @@ const Sidebar = ({ isCollapsed, toggleSidebar }) => {
 
       {/* Footer */}
       <div className="p-4 border-t border-white/10">
-        <button className={clsx(
+        <button
+          onClick={handleLogout}
+          className={clsx(
           "flex w-full items-center gap-3 rounded-lg p-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors",
           isCollapsed ? "justify-center" : ""
         )}>
