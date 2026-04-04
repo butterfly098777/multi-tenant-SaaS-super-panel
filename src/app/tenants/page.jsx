@@ -1,20 +1,62 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DataTable from "../../components/ui/DataTable";
 import Modal from "../../components/ui/Modal";
 import FormInput from "../../components/ui/FormInput";
 import FormSelect from "../../components/ui/FormSelect";
-import { FiPlus, FiEdit2, FiTrash2, FiEye } from "react-icons/fi";
+import { FiPlus, FiEdit2, FiTrash2, FiEye, FiCheck } from "react-icons/fi";
 import { fetchTenants, createTenant, tenantKeys } from "../../api/tenantApi";
 import { fetchPlans } from "../../api/superPlansApi";
+
+const FEATURES_GROUPS = {
+  "Business Basics": [
+    { id: 'f_business_name', label: 'Business Info', desc: 'Core identifying name , GST / Tax ID , Address , Contact Details , Currency , Timezone' },
+  ],
+  "User Management": [
+    { id: 'f_user_management', label: 'User Management', desc: 'Add or remove employees , Define roles , Permissions' },
+  ],
+  "Product / Service": [
+    { id: 'f_product_management', label: 'Product Management', desc: 'Product or service title, price, tax, status' },
+  ],
+  "Billing / Invoice": [
+    { id: 'f_billing_management', label: 'Invoice Number', desc: 'payments, status, invoice/bill' },
+  ],
+  "Reports": [
+    { id: 'f_reports_analytics', label: 'Sales Report', desc: 'Periodic sales analytics, financial revenue, taxation records' },
+  ],
+  "Inventory": [
+    { id: 'f_stock_quantity', label: 'Stock Quantity', desc: 'Track available inventory amounts, low stock alert, notification for reordering' },
+  ],
+  "Room Management": [
+    { id: 'f_room_management', label: 'Room Management', desc: 'Room Number, Room Type, Check-in/out Date, Guest ID, Booking Status, Room Availability, Extra Services' }
+  ],
+  "Manufacturing & Vendor": [
+    { id: 'f_manufacturing_dispatch', label: 'Manufacturing & Dispatch', desc: 'Raw Material Inventory, Production Batch, Mfg Date, Quality Check, Dispatch Tracking, Bulk Orders' }
+  ],
+  "Pharmacy & Clinic": [
+    { id: 'f_drug_licensing', label: 'Drug & Licensing', desc: 'Drug License Number, Batch Number, Expiry Date, Prescription Required' }
+  ]
+};
+
+const CORE_FEATURES = [
+  'f_business_name', 'f_user_management', 'f_product_management', 'f_billing_management', 'f_reports_analytics', 'f_stock_quantity'
+];
+
+const INITIAL_PERMISSIONS = {
+  restaurant: [...CORE_FEATURES],
+  hotel: [...CORE_FEATURES, 'f_room_management'],
+  manufacturing: [...CORE_FEATURES, 'f_manufacturing_dispatch'],
+  pharmacy: [...CORE_FEATURES, 'f_drug_licensing'],
+  business: [...CORE_FEATURES]
+};
 
 // ─── Initial form state ───────────────────────────────────────
 const INITIAL_FORM = {
   businessName: "",
-  businessType: "retail",
+  businessType: "restaurant",
   ownerName: "",
   ownerEmail: "",
   ownerPhone: "",
@@ -36,6 +78,7 @@ const INITIAL_FORM = {
   expiry: "",
   paymentStatus: "pending",
   status: "Active",
+  features: INITIAL_PERMISSIONS['restaurant']
 };
 
 // ─── Table column definitions ─────────────────────────────────
@@ -100,11 +143,11 @@ const columns = [
 
 // ─── Select options ───────────────────────────────────────────
 const BUSINESS_TYPES = [
-  { label: "Retail", value: "retail" },
-  { label: "Restaurant", value: "Restaurant" },
-  { label: "Hotel", value: "Hotel" },
-  { label: "Pharmacy", value: "Pharmacy" },
-  { label: "Manufacturing", value: "Manufacturing" },
+  { label: "Restaurant", value: "restaurant" },
+  { label: "Hotel", value: "hotel" },
+  { label: "Pharmacy", value: "pharmacy" },
+  { label: "Manufacturing", value: "manufacturing" },
+  { label: "Business", value: "business" },
 ];
 
 const TIMEZONES = [
@@ -116,7 +159,6 @@ const CURRENCIES = [
   { label: "USD", value: "USD" },
   { label: "INR", value: "INR" },
 ];
-
 
 const BILLING_CYCLES = [
   { label: "Monthly", value: "monthly" },
@@ -152,34 +194,16 @@ export default function TenantsPage() {
     queryFn: fetchTenants,
   });
 
-  // ── Fetch plans from backend ──────────────────────────────
   const { data: plans = [] } = useQuery({
     queryKey: ["plans"],
     queryFn: fetchPlans,
   });
-/** Teen cheezein hain yahan:
 
-queryKey: ["plans"]
-
-React Query ka cache ka naam hai — ek identity tag Agar kisi aur component ne bhi ["plans"] key use ki → same cache use hoga, double API call nahi hogi
-
-queryFn: fetchPlans
-
-Yeh wo function hai jo actual API call karta hai (superPlansApi.js mein likha) React Query khud call karega ise — hum manually nahi bulate
-
-data: plans = []
-
-data = jo response aaya API se → hum usse plans naam de rahe hain = [] = default value — jab tak API response nahi aata, plans empty array rahega (not undefined → no crash!) */
-
-  // Backend se aaye plans ko { label, value } format mein convert karo
   const planOptions = plans.map((p) => ({
     label: p.planName,
     value: p.planName,
   }));
 
-  /** .map() kya karta hai?
-
-Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke saath — baaki saari fields chod deta hai */
   const createMutation = useMutation({
     mutationFn: createTenant,
     onSuccess: () => {
@@ -191,7 +215,29 @@ Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Automatically update the features checklist when businessType changes
+    if (name === "businessType") {
+      setFormData((prev) => ({ 
+        ...prev, 
+        [name]: value,
+        features: INITIAL_PERMISSIONS[value] || []
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleFeatureToggle = (featureId) => {
+    setFormData(prev => {
+      const hasFeature = prev.features.includes(featureId);
+      return {
+        ...prev,
+        features: hasFeature 
+          ? prev.features.filter(id => id !== featureId)
+          : [...prev.features, featureId]
+      };
+    });
   };
 
   const handleSubmit = (e) => {
@@ -199,7 +245,6 @@ Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke
     createMutation.mutate(formData);
   };
 
-  // ── Row actions (navigate to separate pages) ─────────────
   const actions = (row) => (
     <>
       <button onClick={() => router.push(`/tenants/${row._id}/view`)} className="text-gray-500 hover:text-indigo-600" title="View">
@@ -214,7 +259,6 @@ Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke
     </>
   );
 
-  // ── Loading state ─────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -223,7 +267,6 @@ Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke
     );
   }
 
-  // ── Error state ───────────────────────────────────────────
   if (isError) {
     return (
       <div className="mx-auto mt-20 max-w-md rounded-lg border border-red-200 bg-red-50 p-6 text-center dark:border-red-800 dark:bg-red-900/20">
@@ -245,7 +288,6 @@ Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke
     );
   }
 
-  // ── Render ────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -286,12 +328,12 @@ Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Create New Tenant"
-        size="xl"
+        size="2xl"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* ── 1. Business Information ──────────────── */}
           <div>
-            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2">
+            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2 dark:border-gray-700">
               1. Business Information
             </h4>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -314,10 +356,58 @@ Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke
             </div>
           </div>
 
-          {/* ── 2. Technical Configuration ────────────── */}
+          {/* ── 2. Feature Configuration ────────────── */}
           <div>
-            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2">
-              2. Technical Configuration
+            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2 dark:border-gray-700">
+              2. Module Allowances (Based on {formData.businessType})
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+              {Object.entries(FEATURES_GROUPS).filter(([groupName]) => {
+                if (groupName === 'Room Management') return formData.businessType === 'hotel';
+                if (groupName === 'Manufacturing & Vendor') return formData.businessType === 'manufacturing';
+                if (groupName === 'Pharmacy & Clinic') return formData.businessType === 'pharmacy';
+                if (groupName === 'Inventory') return formData.businessType === 'manufacturing' || formData.businessType === 'pharmacy';
+                return true;
+              }).map(([groupName, features]) => (
+                <div key={groupName} className="col-span-1 md:col-span-2 space-y-2 mt-2">
+                  <h5 className="text-xs font-bold text-gray-400 uppercase tracking-widest">{groupName}</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {features.map((feature) => {
+                      const isEnabled = formData.features.includes(feature.id);
+                      return (
+                        <div 
+                          key={feature.id}
+                          onClick={() => handleFeatureToggle(feature.id)}
+                          className={`relative flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200
+                            ${isEnabled 
+                              ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20' 
+                              : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600/50 bg-gray-50 dark:bg-gray-800'
+                            }`}
+                        >
+                          <div className={`shrink-0 w-5 h-5 rounded flex items-center justify-center transition-colors
+                            ${isEnabled ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600'}
+                          `}>
+                            {isEnabled && <FiCheck size={14} strokeWidth={3} />}
+                          </div>
+                          <div>
+                            <p className={`font-semibold text-xs ${isEnabled ? 'text-indigo-900 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                              {feature.label}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2 italic">* You can toggle individual features off for this specific tenant if needed.</p>
+          </div>
+
+          {/* ── 3. Technical Configuration ────────────── */}
+          <div>
+            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2 dark:border-gray-700">
+              3. Technical Configuration
             </h4>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FormInput label="Subdomain" name="subdomain" value={formData.subdomain} placeholder="example.app.com" required onChange={handleInputChange} />
@@ -325,10 +415,10 @@ Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke
             </div>
           </div>
 
-          {/* ── 3. Subscription & Billing ─────────────── */}
+          {/* ── 4. Subscription & Billing ─────────────── */}
           <div>
-            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2">
-              3. Subscription &amp; Billing
+            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2 dark:border-gray-700">
+              4. Subscription &amp; Billing
             </h4>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FormSelect label="Plan" name="plan" value={formData.plan} options={planOptions} required onChange={handleInputChange} />
@@ -369,4 +459,3 @@ Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke
     </div>
   );
 }
-
