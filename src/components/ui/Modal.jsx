@@ -33,7 +33,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/50 p-4 backdrop-blur-sm sm:p-0">
       <div
         className={clsx(
-          "relative w-full max-h-[90vh] flex flex-col rounded-xl bg-white shadow-2xl transition-all dark:bg-gray-800",
+          "relative w-[80vw] max-h-[90vh] flex flex-col rounded-xl bg-white shadow-2xl transition-all dark:bg-gray-800",
           sizeClasses[size]
         )}
       >
