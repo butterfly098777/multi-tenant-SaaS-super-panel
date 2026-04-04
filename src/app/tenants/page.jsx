@@ -9,7 +9,7 @@ import FormInput from "../../components/ui/FormInput";
 import FormSelect from "../../components/ui/FormSelect";
 import { FiPlus, FiEdit2, FiTrash2, FiEye } from "react-icons/fi";
 import { fetchTenants, createTenant, tenantKeys } from "../../api/tenantApi";
-
+import { fetchPlans } from "../../api/superPlansApi";
 
 // ─── Initial form state ───────────────────────────────────────
 const INITIAL_FORM = {
@@ -117,11 +117,6 @@ const CURRENCIES = [
   { label: "INR", value: "INR" },
 ];
 
-const PLANS = [
-  { label: "Basic", value: "Basic" },
-  { label: "Pro", value: "Pro" },
-  { label: "Enterprise", value: "Enterprise" },
-];
 
 const BILLING_CYCLES = [
   { label: "Monthly", value: "monthly" },
@@ -147,7 +142,6 @@ export default function TenantsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState(INITIAL_FORM);
 
-  // ── Fetch tenants via React Query ─────────────────────────
   const {
     data: tenants = [],
     isLoading,
@@ -158,7 +152,34 @@ export default function TenantsPage() {
     queryFn: fetchTenants,
   });
 
-  // ── Create tenant mutation ────────────────────────────────
+  // ── Fetch plans from backend ──────────────────────────────
+  const { data: plans = [] } = useQuery({
+    queryKey: ["plans"],
+    queryFn: fetchPlans,
+  });
+/** Teen cheezein hain yahan:
+
+queryKey: ["plans"]
+
+React Query ka cache ka naam hai — ek identity tag Agar kisi aur component ne bhi ["plans"] key use ki → same cache use hoga, double API call nahi hogi
+
+queryFn: fetchPlans
+
+Yeh wo function hai jo actual API call karta hai (superPlansApi.js mein likha) React Query khud call karega ise — hum manually nahi bulate
+
+data: plans = []
+
+data = jo response aaya API se → hum usse plans naam de rahe hain = [] = default value — jab tak API response nahi aata, plans empty array rahega (not undefined → no crash!) */
+
+  // Backend se aaye plans ko { label, value } format mein convert karo
+  const planOptions = plans.map((p) => ({
+    label: p.planName,
+    value: p.planName,
+  }));
+
+  /** .map() kya karta hai?
+
+Har ek plan pe ghoomta hai aur ek naya object banata hai sirf label aur value ke saath — baaki saari fields chod deta hai */
   const createMutation = useMutation({
     mutationFn: createTenant,
     onSuccess: () => {
@@ -168,7 +189,6 @@ export default function TenantsPage() {
     },
   });
 
-  // ── Handlers ──────────────────────────────────────────────
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -311,7 +331,7 @@ export default function TenantsPage() {
               3. Subscription &amp; Billing
             </h4>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <FormSelect label="Plan" name="plan" value={formData.plan} options={PLANS} required onChange={handleInputChange} />
+              <FormSelect label="Plan" name="plan" value={formData.plan} options={planOptions} required onChange={handleInputChange} />
               <FormSelect label="Billing Cycle" name="billingCycle" value={formData.billingCycle} options={BILLING_CYCLES} onChange={handleInputChange} />
               <FormInput label="Trial End Date" name="trialEnd" value={formData.trialEnd} type="date" onChange={handleInputChange} />
               <FormInput label="Expiry Date" name="expiry" value={formData.expiry} type="date" onChange={handleInputChange} />

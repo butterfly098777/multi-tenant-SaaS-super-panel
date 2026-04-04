@@ -5,7 +5,6 @@ export const tenantKeys = {
   byId: (id) => ["tenants", id],
 };
 
-// Helper to get token (if you have one in localStorage/cookies)
 const getAuthHeaders = () => {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   return {
