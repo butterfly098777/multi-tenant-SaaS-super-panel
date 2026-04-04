@@ -330,12 +330,56 @@ export default function TenantsPage() {
         title="Create New Tenant"
         size="2xl"
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* ── 1. Business Information ──────────────── */}
-          <div>
-            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2 dark:border-gray-700">
-              1. Business Information
-            </h4>
+        <TenantForm 
+          formData={formData} 
+          setFormData={setFormData}
+          handleInputChange={handleInputChange} 
+          handleFeatureToggle={handleFeatureToggle}
+          handleSubmit={handleSubmit}
+          createMutation={createMutation}
+          setIsModalOpen={setIsModalOpen}
+          planOptions={planOptions}
+        />
+      </Modal>
+    </div>
+  );
+}
+
+// Sub-component to handle the tabbed form state cleanly
+function TenantForm({ formData, setFormData, handleInputChange, handleFeatureToggle, handleSubmit, createMutation, setIsModalOpen, planOptions }) {
+  const [activeTab, setActiveTab] = useState('info');
+
+  const tabs = [
+    { id: 'info', label: '1. Business Info' },
+    { id: 'modules', label: '2. Modules' },
+    { id: 'tech', label: '3. Technical' },
+    { id: 'billing', label: '4. Billing' },
+  ];
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Tabs Header */}
+      <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto custom-scrollbar">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition-colors
+              ${activeTab === tab.id 
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="py-2 min-h-[320px]">
+        {/* ── 1. Business Information ──────────────── */}
+        {activeTab === 'info' && (
+          <div className="animate-fade-in space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FormInput label="Business Name" name="businessName" value={formData.businessName} required onChange={handleInputChange} />
               <FormSelect label="Business Type" name="businessType" value={formData.businessType} options={BUSINESS_TYPES} onChange={handleInputChange} />
@@ -345,7 +389,7 @@ export default function TenantsPage() {
               <FormInput label="GST Number" name="gst" value={formData.gst} onChange={handleInputChange} />
               <FormInput label="PAN" name="pan" value={formData.pan} onChange={handleInputChange} />
             </div>
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <FormInput label="Address" name="address" value={formData.address} className="lg:col-span-4" onChange={handleInputChange} />
               <FormInput label="Country" name="country" value={formData.country} onChange={handleInputChange} />
               <FormInput label="State" name="state" value={formData.state} onChange={handleInputChange} />
@@ -355,13 +399,12 @@ export default function TenantsPage() {
               <FormSelect label="Currency" name="currency" value={formData.currency} options={CURRENCIES} onChange={handleInputChange} />
             </div>
           </div>
+        )}
 
-          {/* ── 2. Feature Configuration ────────────── */}
-          <div>
-            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2 dark:border-gray-700">
-              2. Module Allowances (Based on {formData.businessType})
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+        {/* ── 2. Feature Configuration ────────────── */}
+        {activeTab === 'modules' && (
+          <div className="animate-fade-in space-y-4">
+            <div className="flex flex-col gap-4">
               {Object.entries(FEATURES_GROUPS).filter(([groupName]) => {
                 if (groupName === 'Room Management') return formData.businessType === 'hotel';
                 if (groupName === 'Manufacturing & Vendor') return formData.businessType === 'manufacturing';
@@ -369,31 +412,27 @@ export default function TenantsPage() {
                 if (groupName === 'Inventory') return formData.businessType === 'manufacturing' || formData.businessType === 'pharmacy';
                 return true;
               }).map(([groupName, features]) => (
-                <div key={groupName} className="col-span-1 md:col-span-2 space-y-2 mt-2">
-                  <h5 className="text-xs font-bold text-gray-400 uppercase tracking-widest">{groupName}</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div key={groupName} className="space-y-1.5">
+                  <h5 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">{groupName}</h5>
+                  <div className="flex flex-wrap gap-2">
                     {features.map((feature) => {
                       const isEnabled = formData.features.includes(feature.id);
                       return (
                         <div 
                           key={feature.id}
                           onClick={() => handleFeatureToggle(feature.id)}
-                          className={`relative flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full border cursor-pointer transition-all duration-200 select-none
                             ${isEnabled 
-                              ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20' 
-                              : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600/50 bg-gray-50 dark:bg-gray-800'
+                              ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-500' 
+                              : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                             }`}
                         >
-                          <div className={`shrink-0 w-5 h-5 rounded flex items-center justify-center transition-colors
-                            ${isEnabled ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600'}
+                          <div className={`shrink-0 w-3.5 h-3.5 rounded-sm flex items-center justify-center transition-colors
+                            ${isEnabled ? 'bg-indigo-600 text-white' : 'bg-transparent border border-gray-300 dark:border-gray-600'}
                           `}>
-                            {isEnabled && <FiCheck size={14} strokeWidth={3} />}
+                            {isEnabled && <FiCheck size={10} strokeWidth={4} />}
                           </div>
-                          <div>
-                            <p className={`font-semibold text-xs ${isEnabled ? 'text-indigo-900 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                              {feature.label}
-                            </p>
-                          </div>
+                          <span className="text-xs font-semibold">{feature.label}</span>
                         </div>
                       );
                     })}
@@ -401,25 +440,24 @@ export default function TenantsPage() {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-2 italic">* You can toggle individual features off for this specific tenant if needed.</p>
+            <p className="text-xs text-gray-500 mt-4 italic">* Click on any module to toggle it ON/OFF for this tenant.</p>
           </div>
+        )}
 
-          {/* ── 3. Technical Configuration ────────────── */}
-          <div>
-            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2 dark:border-gray-700">
-              3. Technical Configuration
-            </h4>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* ── 3. Technical Configuration ────────────── */}
+        {activeTab === 'tech' && (
+          <div className="animate-fade-in space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormInput label="Subdomain" name="subdomain" value={formData.subdomain} placeholder="example.app.com" required onChange={handleInputChange} />
-              <FormInput label="Custom MongoDB URI (Optional)" name="mongoUri" value={formData.mongoUri} placeholder="mongodb+srv://..." onChange={handleInputChange} />
+              <FormInput label="Custom Domain (Optional)" name="customDomain" value={formData.customDomain} placeholder="www.example.com" onChange={handleInputChange} />
+              <FormInput label="Custom MongoDB URI (Optional)" name="mongoUri" value={formData.mongoUri} placeholder="mongodb+srv://..." className="sm:col-span-2" onChange={handleInputChange} />
             </div>
           </div>
+        )}
 
-          {/* ── 4. Subscription & Billing ─────────────── */}
-          <div>
-            <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-white border-b pb-2 dark:border-gray-700">
-              4. Subscription &amp; Billing
-            </h4>
+        {/* ── 4. Subscription & Billing ─────────────── */}
+        {activeTab === 'billing' && (
+          <div className="animate-fade-in space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FormSelect label="Plan" name="plan" value={formData.plan} options={planOptions} required onChange={handleInputChange} />
               <FormSelect label="Billing Cycle" name="billingCycle" value={formData.billingCycle} options={BILLING_CYCLES} onChange={handleInputChange} />
@@ -429,33 +467,52 @@ export default function TenantsPage() {
               <FormSelect label="Tenant Status" name="status" value={formData.status} options={TENANT_STATUSES} onChange={handleInputChange} />
             </div>
           </div>
+        )}
+      </div>
 
-          {/* ── Mutation error feedback ───────────────── */}
-          {createMutation.isError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
-              {createMutation.error?.message || "Failed to create tenant."}
-            </div>
-          )}
+      {/* ── Mutation error feedback ───────────────── */}
+      {createMutation.isError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+          {createMutation.error?.message || "Failed to create tenant."}
+        </div>
+      )}
 
-          {/* ── Footer actions ───────────────────────── */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+      {/* ── Footer actions ───────────────────────── */}
+      <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div>
+           {/* Previous tab button logic if we want, or left empty */}
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(false)}
+            className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700"
+          >
+            Cancel
+          </button>
+          {activeTab !== 'billing' ? (
             <button
               type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700"
+              onClick={() => {
+                if (activeTab === 'info') setActiveTab('modules');
+                else if (activeTab === 'modules') setActiveTab('tech');
+                else if (activeTab === 'tech') setActiveTab('billing');
+              }}
+              className="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
             >
-              Cancel
+              Next Step
             </button>
+          ) : (
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="rounded-lg bg-indigo-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-800 focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-indigo-600 dark:hover:bg-indigo-700 dark:focus:ring-indigo-800"
+              className="rounded-lg bg-indigo-700 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-800 focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-indigo-600 dark:hover:bg-indigo-700 dark:focus:ring-indigo-800"
             >
-              {createMutation.isPending ? "Creating…" : "Create Tenant"}
+              {createMutation.isPending ? "Creating…" : "Confirm & Create"}
             </button>
-          </div>
-        </form>
-      </Modal>
-    </div>
+          )}
+        </div>
+      </div>
+    </form>
   );
 }
