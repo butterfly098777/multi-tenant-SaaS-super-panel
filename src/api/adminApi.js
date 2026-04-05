@@ -16,7 +16,10 @@ export const loginAdmin = async ({ email, password }) => {
   // Token localStorage mein save karo
   if (typeof window !== "undefined") {
     localStorage.setItem("token", json.token);
-    localStorage.setItem("admin", JSON.stringify(json.admin));
+    const userData = json.admin || json.role;
+    if (userData) {
+      localStorage.setItem("admin", JSON.stringify(userData));
+    }
   }
 
   return json;

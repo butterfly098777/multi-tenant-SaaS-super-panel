@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DataTable from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import FormInput from '../../components/ui/FormInput';
+import CheckPermission from '../../components/ui/CheckPermission';
 import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { fetchRoles, createRole, updateRole, deleteRole, roleKeys } from '../../api/superRolesApi';
 
@@ -21,6 +22,7 @@ const permissionsList = [
 ];
 
 const INITIAL_FORM_STATE = { roleName: '', roleEmail: '', rolePassword: '', description: '', permissions: {} };
+
 
 export default function RolesPage() {
   const queryClient = useQueryClient();
@@ -141,10 +143,14 @@ export default function RolesPage() {
   ];
 
   const actions = (row) => (
-    <>
-      <button onClick={() => openEditModal(row)} className="text-gray-500 hover:text-blue-600"><FiEdit2 size={18} /></button>
-      <button onClick={() => handleDelete(row._id)} className="text-gray-500 hover:text-red-600"><FiTrash2 size={18} /></button>
-    </>
+    <div className="flex gap-2">
+      <CheckPermission category="Roles" action="Edit">
+        <button onClick={() => openEditModal(row)} className="text-gray-500 hover:text-blue-600"><FiEdit2 size={18} /></button>
+      </CheckPermission>
+      <CheckPermission category="Roles" action="Delete">
+        <button onClick={() => handleDelete(row._id)} className="text-gray-500 hover:text-red-600"><FiTrash2 size={18} /></button>
+      </CheckPermission>
+    </div>
   );
 
   if (isLoading) {
@@ -163,12 +169,14 @@ export default function RolesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Roles & Permissions</h1>
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 transition"
-        >
-          <FiPlus /> {isEditMode ? 'Edit Role' : 'Create Role'}
-        </button>
+        <CheckPermission category="Roles" action="Create">
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 transition"
+          >
+            <FiPlus /> {isEditMode ? 'Edit Role' : 'Create Role'}
+          </button>
+        </CheckPermission>
       </div>
 
       <DataTable columns={columns} data={roles} actions={actions} />

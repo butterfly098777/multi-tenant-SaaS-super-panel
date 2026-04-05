@@ -7,6 +7,7 @@ import DataTable from "../../components/ui/DataTable";
 import Modal from "../../components/ui/Modal";
 import FormInput from "../../components/ui/FormInput";
 import FormSelect from "../../components/ui/FormSelect";
+import CheckPermission from "../../components/ui/CheckPermission";
 import { FiPlus, FiEdit2, FiTrash2, FiEye, FiCheck } from "react-icons/fi";
 import { fetchTenants, createTenant, tenantKeys } from "../../api/tenantApi";
 import { fetchPlans } from "../../api/superPlansApi";
@@ -246,17 +247,21 @@ export default function TenantsPage() {
   };
 
   const actions = (row) => (
-    <>
+    <div className="flex gap-2">
       <button onClick={() => router.push(`/tenants/${row._id}/view`)} className="text-gray-500 hover:text-indigo-600" title="View">
         <FiEye size={18} />
       </button>
-      <button onClick={() => router.push(`/tenants/${row._id}/edit`)} className="text-gray-500 hover:text-blue-600" title="Edit">
-        <FiEdit2 size={18} />
-      </button>
-      <button className="text-gray-500 hover:text-red-600" title="Delete">
-        <FiTrash2 size={18} />
-      </button>
-    </>
+      <CheckPermission category="Tenants" action="Edit">
+        <button onClick={() => router.push(`/tenants/${row._id}/edit`)} className="text-gray-500 hover:text-blue-600" title="Edit">
+          <FiEdit2 size={18} />
+        </button>
+      </CheckPermission>
+      <CheckPermission category="Tenants" action="Delete">
+        <button className="text-gray-500 hover:text-red-600" title="Delete">
+          <FiTrash2 size={18} />
+        </button>
+      </CheckPermission>
+    </div>
   );
 
   if (isLoading) {
@@ -295,12 +300,14 @@ export default function TenantsPage() {
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
           Tenant Management
         </h1>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 transition"
-        >
-          <FiPlus /> Create Tenant
-        </button>
+        <CheckPermission category="Tenants" action="Create">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 transition"
+          >
+            <FiPlus /> Create Tenant
+          </button>
+        </CheckPermission>
       </div>
 
       {/* Empty state */}

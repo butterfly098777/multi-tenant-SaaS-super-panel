@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginAdmin } from "@/api/adminApi";
+import { useAuth } from "../../context/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,7 +26,11 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await loginAdmin(form);
+      const res = await loginAdmin(form);
+      const userData = res.admin || res.role;
+      if (userData) {
+        login(userData); // Hydrate global context immediately so sidebar updates without F5
+      }
       router.push("/dashboard");
     } catch (err) {
       setError(err.message || "Login failed");

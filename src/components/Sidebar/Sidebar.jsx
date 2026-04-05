@@ -17,14 +17,16 @@ import {
 } from 'react-icons/fi';
 import clsx from 'clsx';
 import { logoutAdmin } from '../../api/adminApi';
+import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = ({ isCollapsed, toggleSidebar }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const { hasPermission, logout } = useAuth();
 
   const handleLogout = () => {
-    logoutAdmin();            // localStorage se token + admin clear
-    router.replace('/login'); // login page pe bhejo
+    logoutAdmin(); // call old api method
+    logout(); // uses context logout which clears token and state and redirects
   };
 
 
@@ -82,6 +84,10 @@ const Sidebar = ({ isCollapsed, toggleSidebar }) => {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
         {navItems.map((item) => {
+          // If they don't have View permissions for this exact menu item, completely skip rendering it.
+          // Note: Dashboard is visible to all
+          if (item.label !== 'Dashboard' && !hasPermission(item.label, 'View')) return null;
+
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href));
 
           return (
